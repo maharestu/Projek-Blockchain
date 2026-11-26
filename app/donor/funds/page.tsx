@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMockApp } from '@/context/MockAppContext';
+import { GAS_BUFFER_PER_TX } from '@/lib/sepolia';
 import PageHeader from '@/components/layout/PageHeader';
 import StatCard from '@/components/common/StatCard';
 import TransactionHistory from '@/components/common/TransactionHistory';
@@ -16,9 +17,32 @@ export default function DonorFundsPage() {
   const myTxs = transactions.filter((t) => myProgIds.includes(t.programId));
 
   const [selectedProgId, setSelectedProgId] = useState(myPrograms[0]?.id || '');
-  const [depositAmount, setDepositAmount] = useState(0.05);
+  const [depositAmount, setDepositAmount] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  const selectedProg = myPrograms.find((p) => p.id === selectedProgId);
+  const totalGasBuffer = selectedProg
+    ? Number((selectedProg.quota * GAS_BUFFER_PER_TX).toFixed(6))
+    : 0;
+  const targetWithBuffer = selectedProg
+    ? Number((selectedProg.totalBudget + totalGasBuffer).toFixed(6))
+    : 0;
+  const recommendedDeposit = selectedProg
+    ? Number(Math.max(0, targetWithBuffer - selectedProg.escrowDeposited).toFixed(6))
+    : 0;
+
+  useEffect(() => {
+    if (!selectedProgId && myPrograms[0]?.id) {
+      setSelectedProgId(myPrograms[0].id);
+    }
+  }, [myPrograms, selectedProgId]);
+
+  useEffect(() => {
+    if (selectedProg) {
+      setDepositAmount(recommendedDeposit > 0 ? recommendedDeposit : GAS_BUFFER_PER_TX);
+    }
+  }, [selectedProgId, recommendedDeposit, selectedProg]);
 
   const totalDeposit = myPrograms.reduce((a, p) => a + p.escrowDeposited, 0);
   const totalAllocated = myPrograms.reduce((a, p) => a + p.allocatedToCampus, 0);
@@ -126,6 +150,29 @@ export default function DonorFundsPage() {
             </button>
           </div>
         </div>
+
+        {selectedProg && (
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <span className="text-slate-500 block">Kebutuhan Pokok Program</span>
+              <strong className="text-slate-900">
+                {formatRupiah(selectedProg.totalBudget)}
+              </strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block">
+                Cadangan Gas Fee ({selectedProg.quota} × {GAS_BUFFER_PER_TX} ETH)
+              </span>
+              <strong className="text-amber-700">+{formatRupiah(totalGasBuffer)}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block">
+                Total Disarankan (+ Buffer Gas Fee)
+              </span>
+              <strong className="text-blue-700">{formatRupiah(targetWithBuffer)}</strong>
+            </div>
+          </div>
+        )}
 
         {confirmOpen && (
           <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -4,6 +4,7 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 export const SEPOLIA_CHAIN_ID_HEX = '0xaa36a7';
 export const SEPOLIA_EXPLORER_URL = 'https://sepolia.etherscan.io';
 export const SEPOLIA_CONTRACT_STORAGE_KEY = 'educhain_sepolia_contract_address';
+export const GAS_BUFFER_PER_TX = 0.005;
 
 export const SEPOLIA_NETWORK_PARAMS = {
   chainId: SEPOLIA_CHAIN_ID_HEX,

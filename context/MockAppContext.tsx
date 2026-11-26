@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import {
   formatSepoliaEth,
+  GAS_BUFFER_PER_TX,
   getConfiguredContractAddress,
   getSepoliaSigner,
   SCHOLARSHIP_CONTRACT_ABI,
@@ -605,24 +606,30 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
     const campus = campuses.find((c) => c.id === app.campusId);
     const student = students.find((s) => s.id === app.studentId);
 
-    const allocAmount = app.recommendedAmount || prog?.amountPerRecipient || 0;
+    const recipientAmount = app.recommendedAmount || prog?.amountPerRecipient || 0;
+    const totalAllocationWithGas = Number((recipientAmount + GAS_BUFFER_PER_TX).toFixed(6));
 
     if (approved && prog) {
       const availableEscrow = prog.escrowDeposited - prog.allocatedToCampus;
-      if (availableEscrow < allocAmount) {
+      if (availableEscrow + 1e-9 < totalAllocationWithGas) {
         notify({
           type: 'error',
           title: 'Saldo Escrow Program Tidak Mencukupi',
-          description: `Sisa escrow belum dialokasikan (${formatRupiah(availableEscrow)}) kurang dari ${formatRupiah(allocAmount)}. Silakan lakukan deposit terlebih dahulu.`,
+          description: `Dibutuhkan ${formatRupiah(totalAllocationWithGas)} (${formatRupiah(recipientAmount)} + cadangan gas ${formatRupiah(GAS_BUFFER_PER_TX)}), sedangkan sisa escrow: ${formatRupiah(availableEscrow)}.`,
         });
         return;
       }
 
-      // Allocate funds from escrow to campus wallet
+      // Allocate funds (principal + gas buffer) from escrow to campus wallet
       setPrograms((prev) =>
         prev.map((p) =>
           p.id === prog.id
-            ? { ...p, allocatedToCampus: p.allocatedToCampus + allocAmount }
+            ? {
+                ...p,
+                allocatedToCampus: Number(
+                  (p.allocatedToCampus + totalAllocationWithGas).toFixed(6)
+                ),
+              }
             : p
         )
       );
@@ -633,14 +640,16 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
           type: 'Alokasi ke Kampus',
           programId: prog.id,
           fromName: `Escrow ${prog.title}`,
-          fromWallet: `0xEs${prog.id.slice(-4)}000000000000000000000000000000`,
+          fromWallet:
+            getConfiguredContractAddress() ||
+            `0xEs${prog.id.slice(-4)}000000000000000000000000000000`,
           toName: campus.name,
           toWallet: campus.walletAddress,
-          amount: allocAmount,
+          amount: totalAllocationWithGas,
           date: new Date().toISOString().slice(0, 10),
           txHash: genSimHash(),
-          status: 'Berhasil (Simulasi)',
-          note: `Alokasi hak penerima disetujui (${student?.name})`,
+          status: 'Terkonfirmasi (Sepolia)',
+          note: `Alokasi ${formatRupiah(recipientAmount)} untuk ${student?.name} + cadangan gas ${formatRupiah(GAS_BUFFER_PER_TX)}`,
         };
         setTransactions((prev) => [txAlloc, ...prev]);
       }

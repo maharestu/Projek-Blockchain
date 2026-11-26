@@ -586,4 +586,8 @@ contract ScholarshipPlatform is AccessControl, ReentrancyGuard {
 
         emit RefundProcessed(scholarshipId, msg.sender, refundAmount);
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 }

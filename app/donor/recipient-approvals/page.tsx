@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMockApp } from '@/context/MockAppContext';
+import { GAS_BUFFER_PER_TX } from '@/lib/sepolia';
 import { ScholarshipApplication } from '@/types';
 import PageHeader from '@/components/layout/PageHeader';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -92,10 +93,23 @@ export default function DonorRecipientApprovalsPage() {
                   </div>
 
                   <div className="text-left sm:text-right">
-                    <span className="text-[11px] text-slate-400 block">Alokasi Usulan</span>
+                    <span className="text-[11px] text-slate-400 block">
+                      Hak Penerima (+{GAS_BUFFER_PER_TX} ETH Gas Buffer)
+                    </span>
                     <strong className="text-base font-extrabold text-blue-700">
-                      {formatRupiah(app.recommendedAmount || prog?.amountPerRecipient || 0)}
+                      {formatRupiah(
+                        Number(
+                          (
+                            (app.recommendedAmount || prog?.amountPerRecipient || 0) +
+                            GAS_BUFFER_PER_TX
+                          ).toFixed(6)
+                        )
+                      )}
                     </strong>
+                    <span className="block text-[10px] text-slate-500">
+                      Mahasiswa terima utuh:{' '}
+                      {formatRupiah(app.recommendedAmount || prog?.amountPerRecipient || 0)}
+                    </span>
                   </div>
                 </div>
 
