@@ -255,7 +255,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
 
   // Auth lookup by wallet
   const loginByWallet = (wallet: string) => {
-    const normalized = wallet.toLowerCase();
+    const normalized = wallet.trim().toLowerCase();
 
     if (normalized === ADMIN_WALLET.toLowerCase()) {
       setCurrentRole('admin');
@@ -263,35 +263,41 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
       return { success: true, role: 'admin' as UserRole };
     }
 
-    const foundCampus = campuses.find((c) => c.walletAddress.toLowerCase() === normalized);
+    const foundCampus = campuses.find(
+      (c) => c.walletAddress.trim().toLowerCase() === normalized
+    );
     if (foundCampus) {
       if (foundCampus.status === 'Nonaktif') {
         return { success: false, reason: 'inactive' as const };
       }
       setCurrentRole('campus');
-      setActiveWallet(foundCampus.walletAddress);
+      setActiveWallet(foundCampus.walletAddress.trim());
       setActiveCampusId(foundCampus.id);
       return { success: true, role: 'campus' as UserRole };
     }
 
-    const foundDonor = donors.find((d) => d.walletAddress.toLowerCase() === normalized);
+    const foundDonor = donors.find(
+      (d) => d.walletAddress.trim().toLowerCase() === normalized
+    );
     if (foundDonor) {
       if (foundDonor.status === 'Nonaktif') {
         return { success: false, reason: 'inactive' as const };
       }
       setCurrentRole('donor');
-      setActiveWallet(foundDonor.walletAddress);
+      setActiveWallet(foundDonor.walletAddress.trim());
       setActiveDonorId(foundDonor.id);
       return { success: true, role: 'donor' as UserRole };
     }
 
-    const foundStudent = students.find((s) => s.walletAddress.toLowerCase() === normalized);
+    const foundStudent = students.find(
+      (s) => s.walletAddress.trim().toLowerCase() === normalized
+    );
     if (foundStudent) {
       if (foundStudent.status === 'Nonaktif') {
         return { success: false, reason: 'inactive' as const };
       }
       setCurrentRole('student');
-      setActiveWallet(foundStudent.walletAddress);
+      setActiveWallet(foundStudent.walletAddress.trim());
       setActiveStudentId(foundStudent.id);
       return { success: true, role: 'student' as UserRole };
     }
@@ -308,6 +314,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
   const addCampus = (campus: Omit<Campus, 'id' | 'registeredAt' | 'status'>) => {
     const newCampus: Campus = {
       ...campus,
+      walletAddress: campus.walletAddress.trim(),
       id: `campus-${Date.now()}`,
       status: 'Aktif',
       registeredAt: new Date().toISOString().slice(0, 10),
@@ -346,6 +353,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
   const addDonor = (donor: Omit<Donor, 'id' | 'registeredAt' | 'status'>) => {
     const newDonor: Donor = {
       ...donor,
+      walletAddress: donor.walletAddress.trim(),
       id: `donor-${Date.now()}`,
       status: 'Aktif',
       registeredAt: new Date().toISOString().slice(0, 10),
@@ -759,6 +767,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
     const campus = campuses.find((c) => c.id === student.campusId);
     const newStudent: Student = {
       ...student,
+      walletAddress: student.walletAddress.trim(),
       id: `student-${Date.now()}`,
       status: 'Aktif',
       registeredAt: new Date().toISOString().slice(0, 10),
