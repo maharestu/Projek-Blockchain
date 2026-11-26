@@ -3,10 +3,11 @@
 import React from 'react';
 import { MockTransaction } from '@/types';
 import { useMockApp } from '@/context/MockAppContext';
+import { SEPOLIA_EXPLORER_URL } from '@/lib/sepolia';
 import WalletAddress from './WalletAddress';
 import StatusBadge from './StatusBadge';
 import EmptyState from './EmptyState';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, ExternalLink } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: MockTransaction[];
@@ -15,7 +16,7 @@ interface TransactionHistoryProps {
 
 export default function TransactionHistory({
   transactions,
-  emptyMessage = 'Belum ada catatan transaksi simulasi untuk kriteria ini.',
+  emptyMessage = 'Belum ada catatan transaksi Sepolia untuk kriteria ini.',
 }: TransactionHistoryProps) {
   const { formatRupiah, programs } = useMockApp();
 
@@ -38,7 +39,7 @@ export default function TransactionHistory({
             <th className="py-3 px-4">Jenis & Program</th>
             <th className="py-3 px-4">Dari → Tujuan</th>
             <th className="py-3 px-4">Nominal</th>
-            <th className="py-3 px-4">Hash Transaksi (Simulasi)</th>
+            <th className="py-3 px-4">Hash Transaksi (Sepolia)</th>
             <th className="py-3 px-4">Status</th>
           </tr>
         </thead>
@@ -72,9 +73,16 @@ export default function TransactionHistory({
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-1.5">
                     <WalletAddress address={tx.txHash} chars={6} />
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-                      Simulasi
-                    </span>
+                    <a
+                      href={`${SEPOLIA_EXPLORER_URL}/tx/${tx.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                      title="Lihat di Sepolia Etherscan"
+                    >
+                      <span>Etherscan</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
                   </div>
                 </td>
                 <td className="py-3 px-4">

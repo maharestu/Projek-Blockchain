@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import MetaMaskGuideModal from './MetaMaskGuideModal';
 import { useMockApp } from '@/context/MockAppContext';
+import { ensureSepoliaNetwork } from '@/lib/sepolia';
 
 interface EthereumProvider {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -109,6 +110,8 @@ export default function WalletLoginCard() {
         );
         return;
       }
+
+      await ensureSepoliaNetwork();
 
       if (forceAccountPicker) {
         try {

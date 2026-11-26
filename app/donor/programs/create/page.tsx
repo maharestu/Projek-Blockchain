@@ -22,8 +22,8 @@ export default function DonorCreateProgramPage() {
     targetDegree: 'S1 / D4',
     criteria: 'Mahasiswa aktif dengan IPK minimal 3.25',
     quota: 5,
-    amountPerRecipient: 10000000,
-    assetSymbol: 'IDRX (Placeholder)',
+    amountPerRecipient: 0.05,
+    assetSymbol: 'SepoliaETH',
     openDate: '2026-12-01',
     closeDate: '2027-01-15',
     selectionDate: '2027-01-20',
@@ -233,12 +233,12 @@ export default function DonorCreateProgramPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
-                  Nominal Bantuan per Penerima (IDR)
+                  Nominal Bantuan per Penerima (SepoliaETH)
                 </label>
                 <input
                   type="number"
-                  min={100000}
-                  step={500000}
+                  min={0.0001}
+                  step={0.001}
                   value={form.amountPerRecipient}
                   onChange={(e) =>
                     setForm({ ...form, amountPerRecipient: Number(e.target.value) })
@@ -248,7 +248,7 @@ export default function DonorCreateProgramPage() {
               </div>
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
-                  Aset / Token (Placeholder)
+                  Jaringan & Aset
                 </label>
                 <input
                   value={form.assetSymbol}

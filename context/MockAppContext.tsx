@@ -1,6 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import {
+  formatSepoliaEth,
+  getConfiguredContractAddress,
+  getSepoliaSigner,
+  SCHOLARSHIP_CONTRACT_ABI,
+} from '@/lib/sepolia';
 import {
   UserRole,
   Campus,
@@ -81,7 +88,7 @@ interface MockAppContextType {
     >
   ) => void;
   submitProgramForVerification: (programId: string) => void;
-  depositToEscrow: (programId: string, amount: number) => void;
+  depositToEscrow: (programId: string, amount: number) => Promise<boolean>;
   decideRecipient: (applicationId: string, approved: boolean, note: string) => void;
   requestCancellation: (programId: string, reason: string) => void;
   settleRemainingFunds: (programId: string, action: 'refund' | 'transfer', note: string) => void;
@@ -96,7 +103,7 @@ interface MockAppContextType {
     note: string
   ) => void;
   recommendRecipient: (applicationId: string, note: string) => void;
-  disburseFunds: (applicationId: string, amount: number) => boolean;
+  disburseFunds: (applicationId: string, amount: number) => Promise<boolean>;
 
   // Student Actions
   submitApplication: (
@@ -204,13 +211,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
     activeStudentId,
   ]);
 
-  const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const formatRupiah = (amount: number) => formatSepoliaEth(amount);
 
   const notify = (toast: Omit<ToastMessage, 'id'>) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -492,38 +493,100 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const depositToEscrow = (programId: string, amount: number) => {
+  const depositToEscrow = async (programId: string, amount: number): Promise<boolean> => {
     const donor = donors.find((d) => d.id === activeDonorId);
     const prog = programs.find((p) => p.id === programId);
-    if (!prog || !donor) return;
+    if (!prog || !donor) return false;
 
-    setPrograms((prev) =>
-      prev.map((p) =>
-        p.id === programId ? { ...p, escrowDeposited: p.escrowDeposited + amount } : p
-      )
-    );
+    const contractAddr = getConfiguredContractAddress();
+    if (!contractAddr) {
+      notify({
+        type: 'error',
+        title: 'Alamat Smart Contract Sepolia Belum Diatur',
+        description:
+          'Deploy contracts/contract.sol ke jaringan Sepolia lalu masukkan alamat kontraknya di menu Pengaturan Admin (/admin/settings).',
+      });
+      return false;
+    }
 
-    const newTx: MockTransaction = {
-      id: `tx-${Date.now()}`,
-      type: 'Deposit Escrow',
-      programId,
-      fromName: donor.name,
-      fromWallet: donor.walletAddress,
-      toName: `Escrow ${prog.title}`,
-      toWallet: `0xEs${programId.slice(-4)}000000000000000000000000000000`,
-      amount,
-      date: new Date().toISOString().slice(0, 10),
-      txHash: genSimHash(),
-      status: 'Berhasil (Simulasi)',
-      note: `Simulasi deposit dana ke smart contract escrow`,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    addActivity('donor', donor.name, `Deposit escrow ${formatRupiah(amount)} (Simulasi)`, prog.title, 'Dana');
-    notify({
-      type: 'success',
-      title: 'Deposit Escrow Berhasil (Simulasi)',
-      description: `${formatRupiah(amount)} telah dicatat pada saldo escrow ${prog.title}.`,
-    });
+    try {
+      const signer = await getSepoliaSigner();
+      const valueWei = ethers.parseEther(amount.toString());
+
+      let txResponse: ethers.TransactionResponse;
+      if (prog.onChainId) {
+        const contract = new ethers.Contract(
+          contractAddr,
+          SCHOLARSHIP_CONTRACT_ABI,
+          signer
+        );
+        txResponse = await contract.fundScholarship(prog.onChainId, {
+          value: valueWei,
+        });
+      } else {
+        txResponse = await signer.sendTransaction({
+          to: contractAddr,
+          value: valueWei,
+        });
+      }
+
+      notify({
+        type: 'info',
+        title: 'Transaksi Sepolia Dikirim',
+        description: 'Menunggu konfirmasi block di jaringan Sepolia...',
+      });
+
+      const receipt = await txResponse.wait();
+      const confirmedHash = receipt?.hash || txResponse.hash;
+
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.id === programId
+            ? { ...p, escrowDeposited: p.escrowDeposited + amount }
+            : p
+        )
+      );
+
+      const newTx: MockTransaction = {
+        id: `tx-${Date.now()}`,
+        type: 'Deposit Escrow',
+        programId,
+        fromName: donor.name,
+        fromWallet: await signer.getAddress(),
+        toName: `Escrow ${prog.title}`,
+        toWallet: contractAddr,
+        amount,
+        date: new Date().toISOString().slice(0, 10),
+        txHash: confirmedHash,
+        status: 'Terkonfirmasi (Sepolia)',
+        note: `Deposit SepoliaETH ke smart contract escrow`,
+      };
+      setTransactions((prev) => [newTx, ...prev]);
+      addActivity(
+        'donor',
+        donor.name,
+        `Deposit escrow ${formatRupiah(amount)} (Sepolia)`,
+        prog.title,
+        'Dana'
+      );
+      notify({
+        type: 'success',
+        title: 'Deposit Sepolia Berhasil',
+        description: `${formatRupiah(amount)} telah masuk ke escrow ${prog.title}.`,
+      });
+      return true;
+    } catch (err: unknown) {
+      const e = err as { code?: string | number; shortMessage?: string; message?: string };
+      notify({
+        type: 'error',
+        title: 'Transaksi Sepolia Gagal',
+        description:
+          e?.code === 'ACTION_REJECTED' || e?.code === 4001
+            ? 'Anda membatalkan transaksi di MetaMask.'
+            : e?.shortMessage || e?.message || 'Gagal mengirim SepoliaETH.',
+      });
+      return false;
+    }
   };
 
   const decideRecipient = (applicationId: string, approved: boolean, note: string) => {
@@ -826,7 +889,7 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const disburseFunds = (applicationId: string, amount: number) => {
+  const disburseFunds = async (applicationId: string, amount: number): Promise<boolean> => {
     const app = applications.find((a) => a.id === applicationId);
     if (!app || app.status !== 'Disetujui Donatur') {
       notify({
@@ -873,41 +936,71 @@ export function MockAppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    setPrograms((prev) =>
-      prev.map((p) =>
-        p.id === prog.id ? { ...p, disbursedToStudents: p.disbursedToStudents + amount } : p
-      )
-    );
+    try {
+      const signer = await getSepoliaSigner();
+      const valueWei = ethers.parseEther(amount.toString());
 
-    const tx: MockTransaction = {
-      id: `tx-${Date.now()}`,
-      type: 'Penyaluran ke Mahasiswa',
-      programId: prog.id,
-      fromName: campus.name,
-      fromWallet: campus.walletAddress,
-      toName: student.name,
-      toWallet: student.walletAddress,
-      amount,
-      date: new Date().toISOString().slice(0, 10),
-      txHash: genSimHash(),
-      status: 'Berhasil (Simulasi)',
-      note: `Penyaluran dana beasiswa ${prog.title}`,
-    };
-    setTransactions((prev) => [tx, ...prev]);
+      const txResponse = await signer.sendTransaction({
+        to: student.walletAddress,
+        value: valueWei,
+      });
 
-    addActivity(
-      'campus',
-      campus.name,
-      `Menyalurkan dana ${formatRupiah(amount)} (Simulasi)`,
-      student.name,
-      'Dana'
-    );
-    notify({
-      type: 'success',
-      title: 'Penyaluran Dana Berhasil (Simulasi)',
-      description: `${formatRupiah(amount)} telah disalurkan ke wallet ${student.name}.`,
-    });
-    return true;
+      notify({
+        type: 'info',
+        title: 'Mengirim SepoliaETH ke Mahasiswa',
+        description: 'Menunggu konfirmasi transaksi di jaringan Sepolia...',
+      });
+
+      const receipt = await txResponse.wait();
+      const confirmedHash = receipt?.hash || txResponse.hash;
+
+      setPrograms((prev) =>
+        prev.map((p) =>
+          p.id === prog.id ? { ...p, disbursedToStudents: p.disbursedToStudents + amount } : p
+        )
+      );
+
+      const tx: MockTransaction = {
+        id: `tx-${Date.now()}`,
+        type: 'Penyaluran ke Mahasiswa',
+        programId: prog.id,
+        fromName: campus.name,
+        fromWallet: await signer.getAddress(),
+        toName: student.name,
+        toWallet: student.walletAddress,
+        amount,
+        date: new Date().toISOString().slice(0, 10),
+        txHash: confirmedHash,
+        status: 'Terkonfirmasi (Sepolia)',
+        note: `Penyaluran SepoliaETH beasiswa ${prog.title}`,
+      };
+      setTransactions((prev) => [tx, ...prev]);
+
+      addActivity(
+        'campus',
+        campus.name,
+        `Menyalurkan ${formatRupiah(amount)} (Sepolia)`,
+        student.name,
+        'Dana'
+      );
+      notify({
+        type: 'success',
+        title: 'Penyaluran SepoliaETH Berhasil',
+        description: `${formatRupiah(amount)} telah dikirim ke wallet ${student.name}.`,
+      });
+      return true;
+    } catch (err: unknown) {
+      const e = err as { code?: string | number; shortMessage?: string; message?: string };
+      notify({
+        type: 'error',
+        title: 'Penyaluran SepoliaETH Gagal',
+        description:
+          e?.code === 'ACTION_REJECTED' || e?.code === 4001
+            ? 'Anda membatalkan transaksi di MetaMask.'
+            : e?.shortMessage || e?.message || 'Gagal mengirim SepoliaETH ke wallet mahasiswa.',
+      });
+      return false;
+    }
   };
 
   // ==================== STUDENT ACTIONS ====================

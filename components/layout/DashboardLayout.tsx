@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { UserRole } from '@/types';
 import { useMockApp } from '@/context/MockAppContext';
+import { getSepoliaWalletBalance } from '@/lib/sepolia';
 import WalletAddress from '@/components/common/WalletAddress';
 import {
   LayoutDashboard,
@@ -94,6 +95,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [ethBalance, setEthBalance] = useState<string | null>(null);
 
   const {
     activeWallet,
@@ -105,6 +107,16 @@ export default function DashboardLayout({
     activeStudentId,
     logout,
   } = useMockApp();
+
+  useEffect(() => {
+    if (!activeWallet) {
+      setEthBalance(null);
+      return;
+    }
+    getSepoliaWalletBalance(activeWallet)
+      .then((bal) => setEthBalance(bal))
+      .catch(() => setEthBalance(null));
+  }, [activeWallet]);
 
   const navItems = ROLE_MENUS[role];
   const roleMeta = ROLE_LABELS[role];
@@ -246,7 +258,16 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                Sepolia Testnet
+                {ethBalance !== null && (
+                  <span className="text-slate-700 font-mono ml-1">
+                    ({ethBalance} ETH)
+                  </span>
+                )}
+              </span>
               {activeWallet ? (
                 <WalletAddress address={activeWallet} chars={6} />
               ) : (

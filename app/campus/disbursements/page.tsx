@@ -29,6 +29,7 @@ export default function CampusDisbursementsPage() {
     maxRemaining: number;
   } | null>(null);
   const [amountInput, setAmountInput] = useState(0);
+  const [isSending, setIsSending] = useState(false);
 
   const approvedApps = applications.filter(
     (a) => a.campusId === activeCampusId && a.status === 'Disetujui Donatur'
@@ -57,10 +58,12 @@ export default function CampusDisbursementsPage() {
     setAmountInput(remaining);
   };
 
-  const handleConfirmDisburse = (e: React.FormEvent) => {
+  const handleConfirmDisburse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!disburseTarget) return;
-    const ok = disburseFunds(disburseTarget.app.id, amountInput);
+    setIsSending(true);
+    const ok = await disburseFunds(disburseTarget.app.id, amountInput);
+    setIsSending(false);
     if (ok) {
       setDisburseTarget(null);
     }
@@ -70,8 +73,8 @@ export default function CampusDisbursementsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Penyaluran Dana ke Mahasiswa"
-        description="Salurkan dana beasiswa kepada penerima yang telah disetujui donatur. Kampus tidak dapat menyalurkan melebihi alokasi program."
-        badge="Simulasi Penyaluran"
+        description="Salurkan SepoliaETH kepada penerima yang telah disetujui donatur melalui MetaMask. Kampus tidak dapat menyalurkan melebihi alokasi program."
+        badge="Sepolia Testnet"
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -183,7 +186,7 @@ export default function CampusDisbursementsPage() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-900 text-base">
-                Konfirmasi Penyaluran Dana (Simulasi)
+                Konfirmasi Penyaluran SepoliaETH
               </h3>
               <button type="button" onClick={() => setDisburseTarget(null)}>
                 <X className="w-4 h-4 text-slate-400" />
@@ -214,11 +217,12 @@ export default function CampusDisbursementsPage() {
 
             <div>
               <label className="font-semibold text-slate-700 block mb-1">
-                Nominal Penyaluran (IDR)
+                Nominal Penyaluran (SepoliaETH)
               </label>
               <input
                 type="number"
-                min={100000}
+                min={0.0001}
+                step={0.001}
                 max={disburseTarget.maxRemaining}
                 value={amountInput}
                 onChange={(e) => setAmountInput(Number(e.target.value))}
@@ -229,6 +233,7 @@ export default function CampusDisbursementsPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
+                disabled={isSending}
                 onClick={() => setDisburseTarget(null)}
                 className="px-4 py-2 rounded-xl border border-slate-200 font-semibold"
               >
@@ -236,9 +241,10 @@ export default function CampusDisbursementsPage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                disabled={isSending}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer disabled:opacity-50"
               >
-                Kirim Dana (Simulasi)
+                {isSending ? 'Mengirim via MetaMask...' : 'Kirim SepoliaETH'}
               </button>
             </div>
           </form>

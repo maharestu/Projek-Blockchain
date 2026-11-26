@@ -32,6 +32,7 @@ const STATUS_STYLES: Record<string, string> = {
   'Menunggu Admin': 'bg-amber-50 text-amber-800 border-amber-200',
 
   // Transaction
+  'Terkonfirmasi (Sepolia)': 'bg-emerald-50 text-emerald-700 border-emerald-200',
   'Berhasil (Simulasi)': 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 

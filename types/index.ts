@@ -89,6 +89,7 @@ export interface ScholarshipProgram {
   requiredDocuments: string[];
   status: ProgramStatus;
   rejectionReason?: string;
+  onChainId?: number;
   createdAt: string;
 }
 
@@ -144,8 +145,8 @@ export interface MockTransaction {
   toWallet: string;
   amount: number;
   date: string;
-  txHash: string; // Selalu diberi penanda Simulasi di UI
-  status: 'Berhasil (Simulasi)';
+  txHash: string;
+  status: 'Terkonfirmasi (Sepolia)' | 'Berhasil (Simulasi)';
   note?: string;
 }
 
